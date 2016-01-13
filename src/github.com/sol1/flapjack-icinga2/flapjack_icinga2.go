@@ -120,29 +120,44 @@ func main() {
           switch m["type"] {
             case "CheckResult":
               check_result := m["check_result"].(map[string]interface{})
-              vars_before  := check_result["vars_before"].(map[string]interface{})
-              vars_after   := check_result["vars_after"].(map[string]interface{})
-
               timestamp    := m["timestamp"].(float64)
 
-              // TODO determine Flapjack state from changes in vars_before/vars_after
-              _ = vars_before
-              _ = vars_after
-
-              // build and submit Flapjack redis event
-              event := FlapjackEvent{
-                Entity:  m["host"].(string),
-                Check:   m["service"].(string),
-                Time:    int64(timestamp),
-                // State:   "ok",
-                Summary: check_result["output"].(string),
+              // https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
+              var state string
+              switch check_result["state"].(float64) {
+                case 0.0:
+                  state = "ok"
+                case 1.0:
+                  state = "warning"
+                case 2.0:
+                  state = "critical"
+                case 3.0:
+                  state = "unknown"
+                default:
+                  fmt.Println(check_result["state"].(float64), "is a state value I don't know how to handle")
               }
 
-              _ = event
+              if state != "" {
+                // build and submit Flapjack redis event
+                event := FlapjackEvent{
+                  Entity:  m["host"].(string),
+                  Check:   m["service"].(string),
+                  Time:    int64(timestamp),
+                  State:   state,
+                  Summary: check_result["output"].(string),
+                }
 
-              // _, t_err = transport.Send(event)
+                reply, t_err := transport.Send(event)
+                if t_err != nil {
+                  fmt.Println("Error: couldn't send event:", err)
+                } else {
+                  if config.Debug {
+                    fmt.Println("Reply from Redis:", reply)
+                  }
+                }
+              }
             default:
-              fmt.Println(m["type"], "is of a type I don't know how to handle")
+              fmt.Println(m["type"], "is a type I don't know how to handle")
           }
 			 }
       }

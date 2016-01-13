@@ -8,9 +8,9 @@ package flapjack_icinga2
 
 import (
   "bytes"
+  "encoding/json"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -82,7 +82,7 @@ func main() {
 
   icinga_url_parts := []string{
     "http://", config.IcingaServer, "events?queue=", config.IcingaQueue,
-    "&types=CheckResult&types=StateChange&types=CommentAdded&types=CommentRemoved",
+    "&types=CheckResult", // &types=StateChange&types=CommentAdded&types=CommentRemoved",
   }
   var icinga_url bytes.Buffer
   for i := range icinga_url_parts {
@@ -107,22 +107,45 @@ func main() {
 
 			if h_err == nil {
 				defer resp.Body.Close()
-				contents, e := ioutil.ReadAll(resp.Body)
-				if e != nil {
-					fmt.Printf("%s", e)
-				} else {
-					fmt.Printf("%s\n", string(contents))
 
-          // TODO decode JSON response to object
+        decoder := json.NewDecoder(resp.Body)
+        var data interface{}
+        json_err := decoder.Decode(&data)
 
-          // TODO build and submit Flapjack redis event, if event type is relevant
-          event := FlapjackEvent{}
+        if json_err != nil {
+          fmt.Printf("%T\n%s\n%#v\n", err, err, err)
+        } else {
+          m := data.(map[string]interface{})
 
-          // _, er
-          _, _ = transport.Send(event)
+          switch m["type"] {
+            case "CheckResult":
+              check_result := m["check_result"].(map[string]interface{})
+              vars_before  := check_result["vars_before"].(map[string]interface{})
+              vars_after   := check_result["vars_after"].(map[string]interface{})
 
-				}
-			}
+              timestamp    := m["timestamp"].(float64)
+
+              // TODO determine Flapjack state from changes in vars_before/vars_after
+              _ = vars_before
+              _ = vars_after
+
+              // build and submit Flapjack redis event
+              event := FlapjackEvent{
+                Entity:  m["host"].(string),
+                Check:   m["service"].(string),
+                Time:    int64(timestamp),
+                // State:   "ok",
+                Summary: check_result["output"].(string),
+              }
+
+              _ = event
+
+              // _, t_err = transport.Send(event)
+            default:
+              fmt.Println(m["type"], "is of a type I don't know how to handle")
+          }
+			 }
+      }
 
 			c <- h_err
 		}()

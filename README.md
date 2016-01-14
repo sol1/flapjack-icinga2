@@ -1,5 +1,7 @@
 # flapjack-icinga2
 
+[![Build Status](https://travis-ci.org/sol1/flapjack-icinga2.png)](https://travis-ci.org/sol1/flapjack-icinga2)
+
 ** Work in Progress **
 
 A client for Icinga 2's Event Streams API feature (first added in Icinga 2.4.0), which connects to Redis and places events on Flapjack's events queue.

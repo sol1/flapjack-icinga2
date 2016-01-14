@@ -3,7 +3,7 @@ Copied from https://github.com/flapjack/flapjack/blob/master/src/flapjack/event.
 (to ease local debugging/testing)
 */
 
-package flapjack_icinga2
+package flapjack
 
 import (
   "errors"
@@ -11,7 +11,7 @@ import (
 
 // FlapjackEvent is a basic representation of a Flapjack event.
 // Find more at http://flapjack.io/docs/1.0/development/DATA_STRUCTURES
-type FlapjackEvent struct {
+type Event struct {
   Entity  string `json:"entity"`
   Check   string `json:"check"`
   Type    string `json:"type"`
@@ -21,7 +21,7 @@ type FlapjackEvent struct {
 }
 
 // IsValid performs basic validations on the event data.
-func (e FlapjackEvent) IsValid() error {
+func (e Event) IsValid() error {
   // FIXME: provide validation errors for each failure
   if len(e.Entity) == 0 {
     return errors.New("no entity")

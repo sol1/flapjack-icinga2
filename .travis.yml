@@ -1,10 +1,10 @@
 sudo: false
 language: go
 go:
-  - 1.5
-script: cd src/github.com/sol1/flapjack-icinga2/ && go build -v && go test -v && cd ../../../..
+- 1.5
 services:
 - redis-server
 install:
 - go get gopkg.in/alecthomas/kingpin.v2
 - go get github.com/garyburd/redigo/redis
+script: GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go test -v ./... && GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go build -o bin/flapjack-icinga2 -x github.com/sol1/flapjack-icinga2

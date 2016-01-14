@@ -1,9 +1,9 @@
-package flapjack_icinga2
+package flapjack
 
 import "testing"
 
 func TestValidationFails(t *testing.T) {
-  event := FlapjackEvent{}
+  event := Event{}
   err := event.IsValid()
 
   if err == nil {
@@ -12,7 +12,7 @@ func TestValidationFails(t *testing.T) {
 }
 
 func TestValidationPasses(t *testing.T) {
-  event := FlapjackEvent{
+  event := Event{
     Entity:  "hello",
     Check:   "world",
     State:   "ok",

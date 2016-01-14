@@ -1,4 +1,4 @@
-package flapjack_icinga2
+package main
 
 // TODO clean up, split into multiple files
 
@@ -9,6 +9,7 @@ package flapjack_icinga2
 import (
   "bytes"
   "encoding/json"
+  "github.com/sol1/flapjack-icinga2/flapjack"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	app = kingpin.New("flapjack-icinga2", "")
+	app = kingpin.New("flapjack-icinga2", "Transfers Icinga 2 events to Flapjack")
 
 	icinga_server = app.Flag("icinga", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
 	icinga_queue  = app.Flag("queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
@@ -89,13 +90,13 @@ func main() {
     icinga_url.WriteString(icinga_url_parts[i])
   }
 
-  transport, err := FlapjackDial(config.RedisServer, config.RedisDatabase)
+  transport, err := flapjack.Dial(config.RedisServer, config.RedisDatabase)
   if err != nil {
     fmt.Println("Couldn't establish Redis connection: %s", err)
     os.Exit(1)
   }
 
-	req, _ := http.NewRequest("GET", icinga_url.String(), nil)
+	req, _ := http.NewRequest("POST", icinga_url.String(), nil)
 	tr := &http.Transport{} // TODO settings from DefaultTransport
 	client := &http.Client{Transport: tr}
 	c := make(chan error, 1)
@@ -139,7 +140,7 @@ func main() {
 
               if state != "" {
                 // build and submit Flapjack redis event
-                event := FlapjackEvent{
+                event := flapjack.Event{
                   Entity:  m["host"].(string),
                   Check:   m["service"].(string),
                   Time:    int64(timestamp),
@@ -168,6 +169,7 @@ func main() {
 		select {
 		case <-sigs:
 			log.Println("Cancelling request")
+      // TODO determine if request not currently active...
 			tr.CancelRequest(req)
 			done = true
 		case err := <-c:

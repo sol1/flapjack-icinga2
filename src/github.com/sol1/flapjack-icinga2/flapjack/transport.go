@@ -3,32 +3,32 @@ Copied from https://github.com/flapjack/flapjack/blob/master/src/flapjack/transp
 (to ease local debugging/testing)
 */
 
-package flapjack_icinga2
+package flapjack
 
 import (
   "encoding/json"
   "github.com/garyburd/redigo/redis"
 )
 
-// FlapjackTransport is a representation of a Redis connection.
-type FlapjackTransport struct {
+// Transport is a representation of a Redis connection.
+type Transport struct {
   Address    string
   Database   int
   Connection redis.Conn
 }
 
-// Dial establishes a connection to Redis, wrapped in a FlapjackTransport.
-func FlapjackDial(address string, database int) (FlapjackTransport, error) {
+// Dial establishes a connection to Redis, wrapped in a Transport.
+func Dial(address string, database int) (Transport, error) {
   // Connect to Redis
   conn, err := redis.Dial("tcp", address)
   if err != nil {
-    return FlapjackTransport{}, err
+    return Transport{}, err
   }
 
   // Switch database
   conn.Do("SELECT", database)
 
-  transport := FlapjackTransport{
+  transport := Transport{
     Address:    address,
     Database:   database,
     Connection: conn,
@@ -37,7 +37,7 @@ func FlapjackDial(address string, database int) (FlapjackTransport, error) {
 }
 
 // Send takes an event and sends it over a transport.
-func (t FlapjackTransport) Send(event FlapjackEvent) (interface{}, error) {
+func (t Transport) Send(event Event) (interface{}, error) {
   err := event.IsValid()
   if err == nil {
     data, _ := json.Marshal(event)
@@ -52,7 +52,7 @@ func (t FlapjackTransport) Send(event FlapjackEvent) (interface{}, error) {
   }
 }
 
-func (t FlapjackTransport) Close() (interface{}, error) {
+func (t Transport) Close() (interface{}, error) {
   reply, err := t.Connection.Do("QUIT")
   if err != nil {
     return nil, err

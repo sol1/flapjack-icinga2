@@ -1,11 +1,5 @@
 package main
 
-// TODO clean up, split into multiple files
-
-// TODO tests
-
-// NB: all completely WIP, not running very well yet
-
 import (
 	"bytes"
 	"crypto/tls"
@@ -15,7 +9,8 @@ import (
 	"fmt"
 	"github.com/sol1/flapjack-icinga2/flapjack"
 	"gopkg.in/alecthomas/kingpin.v2"
-	// "io/ioutil"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -146,85 +141,20 @@ func main() {
 	finished := make(chan error, 1)
 
 	go func() {
-
 		for done == false {
-
-			resp, h_err := client.Do(req)
-
-			if h_err == nil {
-				defer resp.Body.Close()
-
+			resp, err := client.Do(req)
+			fmt.Println("post-req err", err)
+			if err == nil {
 				log.Printf("URL: %+v\n", icinga_url.String())
 				log.Printf("Response: %+v\n", resp.Status)
+				err = processResponse(resp, transport)
+				fmt.Println("post-process err", err)
+			}
 
-				decoder := json.NewDecoder(resp.Body)
-				var data interface{}
-				json_err := decoder.Decode(&data)
-
-				if json_err != nil {
-					fmt.Printf("%T\n%s\n%#v\n", err, err, err)
-				} else {
-					m := data.(map[string]interface{})
-
-					log.Printf("Decoded Response: %+v\n", data)
-
-					switch m["type"] {
-					case "CheckResult":
-						check_result := m["check_result"].(map[string]interface{})
-						timestamp := m["timestamp"].(float64)
-
-						// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
-						var state string
-						switch check_result["state"].(float64) {
-						case 0.0:
-							state = "ok"
-						case 1.0:
-							state = "warning"
-						case 2.0:
-							state = "critical"
-						case 3.0:
-							state = "unknown"
-						default:
-							fmt.Println(check_result["state"].(float64), "is a state value I don't know how to handle")
-						}
-
-						if state != "" {
-							// build and submit Flapjack redis event
-
-							var service string
-							if serv, ok := m["service"]; ok {
-								service = serv.(string)
-							} else {
-								service = "HOST"
-							}
-
-							event := flapjack.Event{
-								Entity:  m["host"].(string),
-								Check:   service,
-								Type:    "service",
-								Time:    int64(timestamp),
-								State:   state,
-								Summary: check_result["output"].(string),
-							}
-
-							reply, t_err := transport.Send(event)
-							if t_err != nil {
-								fmt.Println("Error: couldn't send event:", err)
-								done = true
-								finished <- errors.New("Unknown type")
-							} else {
-								if config.Debug {
-									fmt.Println("Reply from Redis:", reply)
-									fmt.Println("client finished, repeating")
-								}
-							}
-						}
-					default:
-						fmt.Println(m["type"], "is a type I don't know how to handle")
-						done = true
-						finished <- errors.New("Unknown type")
-					}
-				}
+			if err != nil {
+				fmt.Println("finishing, found err", err)
+				finished <- err
+				done = true
 			}
 		}
 	}()
@@ -242,4 +172,71 @@ func main() {
 	transport.Close()
 
 	// TODO output some stats on events handled etc.
+}
+
+func processResponse(resp *http.Response, transport flapjack.Transport) error {
+	defer func() {
+		// this makes sure that the HTTP connection will be re-used properly -- exhaust
+		// stream and close the handle
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	decoder := json.NewDecoder(resp.Body)
+	var data interface{}
+	err := decoder.Decode(&data)
+
+	if err != nil {
+		return err
+	}
+
+	m := data.(map[string]interface{})
+
+	log.Printf("Decoded Response: %+v\n", data)
+
+	switch m["type"] {
+	case "CheckResult":
+		check_result := m["check_result"].(map[string]interface{})
+		timestamp := m["timestamp"].(float64)
+
+		// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
+		var state string
+		switch check_result["state"].(float64) {
+		case 0.0:
+			state = "ok"
+		case 1.0:
+			state = "warning"
+		case 2.0:
+			state = "critical"
+		case 3.0:
+			state = "unknown"
+		default:
+			// fmt.Println(check_result["state"].(float64), "is a state value I don't know how to handle")
+			return errors.New("Unknown check result state")
+		}
+
+		// build and submit Flapjack redis event
+
+		var service string
+		if serv, ok := m["service"]; ok {
+			service = serv.(string)
+		} else {
+			service = "HOST"
+		}
+
+		event := flapjack.Event{
+			Entity:  m["host"].(string),
+			Check:   service,
+			Type:    "service",
+			Time:    int64(timestamp),
+			State:   state,
+			Summary: check_result["output"].(string),
+		}
+
+		_, err := transport.Send(event)
+		return err
+	default:
+		// fmt.Println(m["type"], "is a type I don't know how to handle")
+		return errors.New("Unknown check result type")
+	}
 }

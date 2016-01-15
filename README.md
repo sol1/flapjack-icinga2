@@ -11,5 +11,7 @@ This is loosely based on Flapjack's httpbroker, although that acts as a HTTP ser
 ## TODO
 
 * Get this working properly with Icinga's created self-signed certs (currently skips the check).
-* Clean up/disconnect connections properly (currently Icinga logs multiple 'warning/TlsStream: TLS stream was disconnected' when the client stops).
 * Review Icinga source to see if other event types need to be handled.
+
+* Clean up code, remove the debug spam etc.
+* Tests.

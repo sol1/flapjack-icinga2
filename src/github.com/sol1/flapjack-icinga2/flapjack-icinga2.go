@@ -190,9 +190,17 @@ func main() {
 
 						if state != "" {
 							// build and submit Flapjack redis event
+
+							var service string
+							if serv, ok := m["service"]; ok {
+								service = serv.(string)
+							} else {
+								service = "HOST"
+							}
+
 							event := flapjack.Event{
 								Entity:  m["host"].(string),
-								Check:   m["service"].(string),
+								Check:   service,
 								Type:    "service",
 								Time:    int64(timestamp),
 								State:   state,
@@ -232,4 +240,6 @@ func main() {
 
 	// close redis connection
 	transport.Close()
+
+	// TODO output some stats on events handled etc.
 }

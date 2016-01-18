@@ -3,9 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	// "crypto/x509"
+	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/sol1/flapjack-icinga2/flapjack"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -23,11 +22,12 @@ import (
 var (
 	app = kingpin.New("flapjack-icinga2", "Transfers Icinga 2 events to Flapjack")
 
-	icinga_server = app.Flag("icinga", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
-	// icinga_certfile = app.Flag("certfile", "Path to Icinga 2 API TLS certfile (required)").Required().String()
+	icinga_server   = app.Flag("icinga", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
+	icinga_certfile = app.Flag("certfile", "Path to Icinga 2 API TLS certfile").String()
 	icinga_user     = app.Flag("user", "Icinga 2 basic auth user (required)").Required().String()
 	icinga_password = app.Flag("password", "Icinga 2 basic auth password (required)").Required().String()
 	icinga_queue    = app.Flag("queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
+	icinga_timeout  = app.Flag("timeout", "Icinga 2 API connection timeout, in milliseconds (default 60_000)").Default("60000").Int()
 
 	// default Redis port is 6380 rather than 6379 as the Flapjack packages ship
 	// with an Omnibus-packaged Redis running on a different port to the
@@ -39,14 +39,15 @@ var (
 )
 
 type Config struct {
-	IcingaServer string
-	// IcingaCertfile string
-	IcingaQueue    string
-	IcingaUser     string
-	IcingaPassword string
-	RedisServer    string
-	RedisDatabase  int
-	Debug          bool
+	IcingaServer    string
+	IcingaCertfile  string
+	IcingaQueue     string
+	IcingaUser      string
+	IcingaPassword  string
+	IcingaTimeoutMS int
+	RedisServer     string
+	RedisDatabase   int
+	Debug           bool
 }
 
 func main() {
@@ -57,31 +58,32 @@ func main() {
 
 	icinga_addr := strings.Split(*icinga_server, ":")
 	if len(icinga_addr) != 2 {
-		fmt.Println("Error: invalid icinga_server specified:", *icinga_server)
-		fmt.Println("Should be in format `host:port` (e.g. 127.0.0.1:5665)")
+		log.Printf("Error: invalid icinga_server specified: %s\n", *icinga_server)
+		log.Println("Should be in format `host:port` (e.g. 127.0.0.1:5665)")
 		os.Exit(1)
 	}
 
 	redis_addr := strings.Split(*redis_server, ":")
 	if len(redis_addr) != 2 {
-		fmt.Println("Error: invalid redis_server specified:", *redis_server)
-		fmt.Println("Should be in format `host:port` (e.g. 127.0.0.1:6380)")
+		log.Printf("Error: invalid redis_server specified: %s\n", *redis_server)
+		log.Println("Should be in format `host:port` (e.g. 127.0.0.1:6380)")
 		os.Exit(1)
 	}
 
 	config := Config{
-		IcingaServer: *icinga_server,
-		// IcingaCertfile: *icinga_certfile,
-		IcingaUser:     *icinga_user,
-		IcingaPassword: *icinga_password,
-		IcingaQueue:    *icinga_queue,
-		RedisServer:    *redis_server,
-		RedisDatabase:  *redis_database,
-		Debug:          *debug,
+		IcingaServer:    *icinga_server,
+		IcingaCertfile:  *icinga_certfile,
+		IcingaUser:      *icinga_user,
+		IcingaPassword:  *icinga_password,
+		IcingaQueue:     *icinga_queue,
+		IcingaTimeoutMS: *icinga_timeout,
+		RedisServer:     *redis_server,
+		RedisDatabase:   *redis_database,
+		Debug:           *debug,
 	}
 
 	if config.Debug {
-		log.Printf("Booting with config: %+v\n", config)
+		log.Printf("Starting with config: %+v\n", config)
 	}
 
 	// shutdown signal handler
@@ -101,58 +103,65 @@ func main() {
 
 	transport, err := flapjack.Dial(config.RedisServer, config.RedisDatabase)
 	if err != nil {
-		fmt.Println("Couldn't establish Redis connection: %s", err)
-		os.Exit(1)
+		log.Fatalf("Couldn't establish Redis connection: %s\n", err)
 	}
 
-	// var tls_config *tls.Config
+	var tls_config *tls.Config
 
-	// if config.IcingaCertfile != "" {
-	//   // server cert is self signed -> server_cert == ca_cert
-	//   CA_Pool := x509.NewCertPool()
-	//   severCert, err := ioutil.ReadFile(config.IcingaCertfile)
-	//   if err != nil {
-	//       log.Fatal("Could not load server certificate")
-	//   }
-	//   CA_Pool.AppendCertsFromPEM(severCert)
+	if config.IcingaCertfile != "" {
+		// assuming self-signed server cert -- /etc/icinga2/ca.crt
+		// TODO check behaviour for using system cert store (valid public cert)
+		CA_Pool := x509.NewCertPool()
+		serverCert, err := ioutil.ReadFile(config.IcingaCertfile)
+		if err != nil {
+			log.Fatalln("Could not load server certificate")
+		}
+		CA_Pool.AppendCertsFromPEM(serverCert)
 
-	//   tls_config = &tls.Config{RootCAs: CA_Pool}
-	// }
+		tls_config = &tls.Config{RootCAs: CA_Pool}
+	}
 
 	req, _ := http.NewRequest("POST", icinga_url.String(), nil)
 	req.Header.Add("Accept", "application/json")
 	req.SetBasicAuth(config.IcingaUser, config.IcingaPassword)
 	var tr *http.Transport
-	// if tls_config == nil {
-	tr = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	} // TODO settings from DefaultTransport
-	// } else {
-	// tr = &http.Transport{
-
-	//   TLSClientConfig: tls_config,
-	// } // TODO settings from DefaultTransport
-
-	// }
+	if tls_config == nil {
+		tr = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		} // TODO settings from DefaultTransport
+		log.Println("Skipping verification of server TLS certificate")
+	} else {
+		tr = &http.Transport{
+			TLSClientConfig: tls_config,
+		} // TODO settings from DefaultTransport
+	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   time.Duration(60 * time.Second),
+		Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
 	}
 	finished := make(chan error, 1)
 
 	go func() {
 		for done == false {
 			resp, err := client.Do(req)
-			fmt.Println("post-req err", err)
+			if config.Debug {
+				fmt.Println("post-req err", err)
+			}
 			if err == nil {
-				log.Printf("URL: %+v\n", icinga_url.String())
-				log.Printf("Response: %+v\n", resp.Status)
-				err = processResponse(resp, transport)
-				fmt.Println("post-process err", err)
+				if config.Debug {
+					fmt.Printf("URL: %+v\n", icinga_url.String())
+					fmt.Printf("Response: %+v\n", resp.Status)
+				}
+				err = processResponse(config, resp, transport)
+				if config.Debug {
+					fmt.Println("post-process err", err)
+				}
 			}
 
 			if err != nil {
-				fmt.Println("finishing, found err", err)
+				if config.Debug {
+					fmt.Println("finishing, found err", err)
+				}
 				finished <- err
 				done = true
 			}
@@ -165,7 +174,9 @@ func main() {
 		// TODO determine if request not currently active...
 		tr.CancelRequest(req)
 	case err := <-finished:
-		fmt.Println("Finished with error", err)
+		if config.Debug {
+			fmt.Println("Finished with error", err)
+		}
 	}
 
 	// close redis connection
@@ -174,7 +185,7 @@ func main() {
 	// TODO output some stats on events handled etc.
 }
 
-func processResponse(resp *http.Response, transport flapjack.Transport) error {
+func processResponse(config Config, resp *http.Response, transport flapjack.Transport) error {
 	defer func() {
 		// this makes sure that the HTTP connection will be re-used properly -- exhaust
 		// stream and close the handle
@@ -192,7 +203,9 @@ func processResponse(resp *http.Response, transport flapjack.Transport) error {
 
 	m := data.(map[string]interface{})
 
-	log.Printf("Decoded Response: %+v\n", data)
+	if config.Debug {
+		fmt.Printf("Decoded Response: %+v\n", data)
+	}
 
 	switch m["type"] {
 	case "CheckResult":
@@ -211,8 +224,7 @@ func processResponse(resp *http.Response, transport flapjack.Transport) error {
 		case 3.0:
 			state = "unknown"
 		default:
-			// fmt.Println(check_result["state"].(float64), "is a state value I don't know how to handle")
-			return errors.New("Unknown check result state")
+			return fmt.Errorf("Unknown check result state %f", check_result["state"].(float64))
 		}
 
 		// build and submit Flapjack redis event
@@ -236,7 +248,6 @@ func processResponse(resp *http.Response, transport flapjack.Transport) error {
 		_, err := transport.Send(event)
 		return err
 	default:
-		// fmt.Println(m["type"], "is a type I don't know how to handle")
-		return errors.New("Unknown check result type")
+		return fmt.Errorf("Unknown type %s", m["type"])
 	}
 }

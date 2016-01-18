@@ -10,8 +10,6 @@ This is loosely based on Flapjack's httpbroker, although that acts as a HTTP ser
 
 ## TODO
 
-* Get this working properly with Icinga's created self-signed certs (currently skips the check).
 * Review Icinga source to see if other event types need to be handled.
-
-* Clean up code, remove the debug spam etc.
-* Tests.
+* Document CLI in this README.
+* More tests.

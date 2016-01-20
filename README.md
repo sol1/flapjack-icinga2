@@ -21,22 +21,29 @@ usage: flapjack-icinga2 [<flags>]
 Transfers Icinga 2 events to Flapjack
 
 Flags:
-  --help                     Show context-sensitive help (also try --help-long
-                             and --help-man).
-  --icinga="localhost:5665"  Icinga 2 API endpoint to connect to (default
-                             localhost:5665)
-  --certfile=CERTFILE        Path to Icinga 2 API TLS certfile
-  --user=USER                Icinga 2 basic auth user (required, also checks
-                             ICINGA2_API_USER env var)
-  --password=PASSWORD        Icinga 2 basic auth password (required, also checks
-                             ICINGA2_API_PASSWORD env var)
-  --queue="flapjack"         Icinga 2 event queue name to use (default flapjack)
-  --timeout=60000            Icinga 2 API connection timeout, in milliseconds
-                             (default 60_000)
-  --redis="localhost:6380"   Redis server to connect to (default localhost:6380)
-  --db=DB                    Redis database to connect to (default 0)
-  --debug                    Enable verbose output (default false)
-  --version                  Show application version.
+  --help                         Show context-sensitive help (also try
+                                 --help-long and --help-man).
+  --icinga-url="localhost:5665"  Icinga 2 API endpoint to connect to (default
+                                 localhost:5665)
+  --icinga-certfile=ICINGA-CERTFILE
+                                 Path to Icinga 2 API TLS certfile
+  --icinga-user=ICINGA-USER      Icinga 2 basic auth user (required, also checks
+                                 ICINGA2_API_USER env var)
+  --icinga-password=ICINGA-PASSWORD
+                                 Icinga 2 basic auth password (required, also
+                                 checks ICINGA2_API_PASSWORD env var)
+  --icinga-queue="flapjack"      Icinga 2 event queue name to use (default
+                                 flapjack)
+  --icinga-timeout=60000         Icinga 2 API connection timeout, in
+                                 milliseconds (default 60_000)
+  --redis-url="localhost:6380"   Redis server to connect to (default
+                                 localhost:6380)
+  --redis-db=REDIS-DB            Redis database to connect to (default 0)
+  --flapjack-version=1           Flapjack version being delivered to (default 1)
+  --flapjack-events="events"     Flapjack event queue name to use (default
+                                 events)
+  --debug                        Enable verbose output (default false)
+  --version                      Show application version.
 ```
 
 ## HISTORY

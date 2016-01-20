@@ -25,18 +25,21 @@ var (
 	icinga_env_api_user     = os.Getenv("ICINGA2_API_USER")
 	icinga_env_api_password = os.Getenv("ICINGA2_API_PASSWORD")
 
-	icinga_server   = app.Flag("icinga", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
-	icinga_certfile = app.Flag("certfile", "Path to Icinga 2 API TLS certfile").String()
-	icinga_user     = app.Flag("user", "Icinga 2 basic auth user (required, also checks ICINGA2_API_USER env var)").Default(icinga_env_api_user).String()
-	icinga_password = app.Flag("password", "Icinga 2 basic auth password (required, also checks ICINGA2_API_PASSWORD env var)").Default(icinga_env_api_password).String()
-	icinga_queue    = app.Flag("queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
-	icinga_timeout  = app.Flag("timeout", "Icinga 2 API connection timeout, in milliseconds (default 60_000)").Default("60000").Int()
+	icinga_server   = app.Flag("icinga-url", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
+	icinga_certfile = app.Flag("icinga-certfile", "Path to Icinga 2 API TLS certfile").String()
+	icinga_user     = app.Flag("icinga-user", "Icinga 2 basic auth user (required, also checks ICINGA2_API_USER env var)").Default(icinga_env_api_user).String()
+	icinga_password = app.Flag("icinga-password", "Icinga 2 basic auth password (required, also checks ICINGA2_API_PASSWORD env var)").Default(icinga_env_api_password).String()
+	icinga_queue    = app.Flag("icinga-queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
+	icinga_timeout  = app.Flag("icinga-timeout", "Icinga 2 API connection timeout, in milliseconds (default 60_000)").Default("60000").Int()
 
 	// default Redis port is 6380 rather than 6379 as the Flapjack packages ship
 	// with an Omnibus-packaged Redis running on a different port to the
 	// distro-packaged one
-	redis_server   = app.Flag("redis", "Redis server to connect to (default localhost:6380)").Default("localhost:6380").String()
-	redis_database = app.Flag("db", "Redis database to connect to (default 0)").Int()
+	redis_server   = app.Flag("redis-url", "Redis server to connect to (default localhost:6380)").Default("localhost:6380").String()
+	redis_database = app.Flag("redis-db", "Redis database to connect to (default 0)").Int()
+
+	flapjack_version = app.Flag("flapjack-version", "Flapjack version being delivered to (default 1)").Default("1").Int()
+	flapjack_events  = app.Flag("flapjack-events", "Flapjack event queue name to use (default events)").Default("events").String()
 
 	debug = app.Flag("debug", "Enable verbose output (default false)").Bool()
 )
@@ -50,6 +53,8 @@ type Config struct {
 	IcingaTimeoutMS int
 	RedisServer     string
 	RedisDatabase   int
+	FlapjackVersion int
+	FlapjackEvents  string
 	Debug           bool
 }
 
@@ -92,6 +97,8 @@ func main() {
 		IcingaTimeoutMS: *icinga_timeout,
 		RedisServer:     *redis_server,
 		RedisDatabase:   *redis_database,
+		FlapjackVersion: *flapjack_version,
+		FlapjackEvents:  *flapjack_events,
 		Debug:           *debug,
 	}
 
@@ -258,7 +265,8 @@ func processResponse(config Config, resp *http.Response, transport flapjack.Tran
 			Summary: check_result["output"].(string),
 		}
 
-		_, err := transport.Send(event)
+		// TODO handle err better -- e.g. redis down?
+		_, err := transport.Send(event, config.FlapjackVersion, config.FlapjackEvents)
 		return err
 	default:
 		return fmt.Errorf("Unknown type %s", m["type"])

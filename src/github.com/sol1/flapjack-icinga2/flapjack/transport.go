@@ -37,19 +37,27 @@ func Dial(address string, database int) (Transport, error) {
 }
 
 // Send takes an event and sends it over a transport.
-func (t Transport) Send(event Event) (interface{}, error) {
+func (t Transport) Send(event Event, flapjackVersion int, list string) (interface{}, error) {
 	err := event.IsValid()
-	if err == nil {
-		data, _ := json.Marshal(event)
-		reply, err := t.Connection.Do("LPUSH", "events", data)
+	if err != nil {
+		return nil, err
+	}
+
+	data, _ := json.Marshal(event)
+	reply, err := t.Connection.Do("LPUSH", list, data)
+	if err != nil {
+		return nil, err
+	}
+
+	if flapjackVersion >= 2 {
+		_, err := t.Connection.Do("LPUSH", list+"_actions", "+")
+
 		if err != nil {
 			return nil, err
 		}
-
-		return reply, nil
-	} else {
-		return nil, err
 	}
+
+	return reply, nil
 }
 
 func (t Transport) Close() (interface{}, error) {

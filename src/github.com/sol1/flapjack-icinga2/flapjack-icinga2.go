@@ -22,10 +22,13 @@ import (
 var (
 	app = kingpin.New("flapjack-icinga2", "Transfers Icinga 2 events to Flapjack")
 
+	icinga_env_api_user     = os.Getenv("ICINGA2_API_USER")
+	icinga_env_api_password = os.Getenv("ICINGA2_API_PASSWORD")
+
 	icinga_server   = app.Flag("icinga", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
 	icinga_certfile = app.Flag("certfile", "Path to Icinga 2 API TLS certfile").String()
-	icinga_user     = app.Flag("user", "Icinga 2 basic auth user (required)").Required().String()
-	icinga_password = app.Flag("password", "Icinga 2 basic auth password (required)").Required().String()
+	icinga_user     = app.Flag("user", "Icinga 2 basic auth user (required, also checks ICINGA2_API_USER env var)").Default(icinga_env_api_user).String()
+	icinga_password = app.Flag("password", "Icinga 2 basic auth password (required, also checks ICINGA2_API_PASSWORD env var)").Default(icinga_env_api_password).String()
 	icinga_queue    = app.Flag("queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
 	icinga_timeout  = app.Flag("timeout", "Icinga 2 API connection timeout, in milliseconds (default 60_000)").Default("60000").Int()
 
@@ -41,9 +44,9 @@ var (
 type Config struct {
 	IcingaServer    string
 	IcingaCertfile  string
-	IcingaQueue     string
 	IcingaUser      string
 	IcingaPassword  string
+	IcingaQueue     string
 	IcingaTimeoutMS int
 	RedisServer     string
 	RedisDatabase   int
@@ -51,7 +54,7 @@ type Config struct {
 }
 
 func main() {
-	app.Version("0.0.1")
+	app.Version("0.1.0")
 	app.Writer(os.Stdout) // direct help to stdout
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	app.Writer(os.Stderr) // ... but ensure errors go to stderr
@@ -67,6 +70,16 @@ func main() {
 	if len(redis_addr) != 2 {
 		log.Printf("Error: invalid redis_server specified: %s\n", *redis_server)
 		log.Println("Should be in format `host:port` (e.g. 127.0.0.1:6380)")
+		os.Exit(1)
+	}
+
+	if *icinga_user == "" {
+		log.Println("No Icinga2 API user specified in ICINGA2_API_USER env variable or --user option")
+		os.Exit(1)
+	}
+
+	if *icinga_password == "" {
+		log.Println("No Icinga2 API password specified in ICINGA2_API_PASSWORD env variable or --password option")
 		os.Exit(1)
 	}
 

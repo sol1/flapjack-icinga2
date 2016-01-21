@@ -41,7 +41,7 @@ Flags:
   --redis-url="localhost:6380"   Redis server to connect to (default
                                  localhost:6380)
   --redis-db=REDIS-DB            Redis database to connect to (default 0)
-  --flapjack-version=1           Flapjack version being delivered to (default 1)
+  --flapjack-version=1           Flapjack version being delivered to (1 or 2) (default 1)
   --flapjack-events="events"     Flapjack event queue name to use (default
                                  events)
   --debug                        Enable verbose output (default false)

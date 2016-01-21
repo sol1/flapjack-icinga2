@@ -38,7 +38,7 @@ var (
 	redis_server   = app.Flag("redis-url", "Redis server to connect to (default localhost:6380)").Default("localhost:6380").String()
 	redis_database = app.Flag("redis-db", "Redis database to connect to (default 0)").Int()
 
-	flapjack_version = app.Flag("flapjack-version", "Flapjack version being delivered to (default 1)").Default("1").Int()
+	flapjack_version = app.Flag("flapjack-version", "Flapjack version being delivered to (1 or 2) (default 1)").Default("1").Int()
 	flapjack_events  = app.Flag("flapjack-events", "Flapjack event queue name to use (default events)").Default("events").String()
 
 	debug = app.Flag("debug", "Enable verbose output (default false)").Bool()

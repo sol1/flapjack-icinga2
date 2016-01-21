@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/sol1/flapjack-icinga2.png)](https://travis-ci.org/sol1/flapjack-icinga2)
 
-A client for Icinga 2's [Event Streams API](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api) feature (first added in Icinga v2.4.0), which connects to Redis and places events on Flapjack's events queue.
+A client for Icinga 2's [Event Streams API](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api#icinga2-api-event-streams) feature (first added in Icinga v2.4.0), which connects to Redis and places events on Flapjack's events queue.
 
 This is loosely based on Flapjack's [httpbroker](https://github.com/flapjack/flapjack/blob/master/libexec/httpbroker.go), although that acts as a HTTP server running to receive callbacks while Icinga 2 expects a long-polling HTTP client to receive event data streamed over a long-lived HTTP 1.1 connection.
 
@@ -11,6 +11,8 @@ It only triggers on 'CheckResult' event types; 'StateChanged' ones are a subset 
 ## INSTALLATION
 
 This API client is written in Go; you'll need Go 1.5 installed on the machine you are building on. The `build.sh` [script](https://github.com/sol1/flapjack-icinga2/blob/master/build.sh) compiles a standalone binary (in `bin/flapjack-icinga2`) which can be run on other machines without external dependencies.
+
+You'll also need to [set up API access for Icinga 2](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api#icinga2-api-setup) if you haven't already.
 
 ## USAGE
 

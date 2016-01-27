@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,12 +26,13 @@ var (
 	icinga_env_api_user     = os.Getenv("ICINGA2_API_USER")
 	icinga_env_api_password = os.Getenv("ICINGA2_API_PASSWORD")
 
-	icinga_server   = app.Flag("icinga-url", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
-	icinga_certfile = app.Flag("icinga-certfile", "Path to Icinga 2 API TLS certfile").String()
-	icinga_user     = app.Flag("icinga-user", "Icinga 2 basic auth user (required, also checks ICINGA2_API_USER env var)").Default(icinga_env_api_user).String()
-	icinga_password = app.Flag("icinga-password", "Icinga 2 basic auth password (required, also checks ICINGA2_API_PASSWORD env var)").Default(icinga_env_api_password).String()
-	icinga_queue    = app.Flag("icinga-queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
-	icinga_timeout  = app.Flag("icinga-timeout", "Icinga 2 API connection timeout, in milliseconds (default 60_000)").Default("60000").Int()
+	icinga_server    = app.Flag("icinga-url", "Icinga 2 API endpoint to connect to (default localhost:5665)").Default("localhost:5665").String()
+	icinga_certfile  = app.Flag("icinga-certfile", "Path to Icinga 2 API TLS certfile").String()
+	icinga_user      = app.Flag("icinga-user", "Icinga 2 basic auth user (required, also checks ICINGA2_API_USER env var)").Default(icinga_env_api_user).String()
+	icinga_password  = app.Flag("icinga-password", "Icinga 2 basic auth password (required, also checks ICINGA2_API_PASSWORD env var)").Default(icinga_env_api_password).String()
+	icinga_queue     = app.Flag("icinga-queue", "Icinga 2 event queue name to use (default flapjack)").Default("flapjack").String()
+	icinga_timeout   = app.Flag("icinga-timeout", "Icinga 2 API connection timeout, in milliseconds (default 30_000)").Default("30000").Int()
+	icinga_keepalive = app.Flag("icinga-keepalive", "Icinga 2 API frequency of keepalive traffic, in milliseconds (default 30_000)").Default("30000").Int()
 
 	// default Redis port is 6380 rather than 6379 as the Flapjack packages ship
 	// with an Omnibus-packaged Redis running on a different port to the
@@ -45,17 +47,18 @@ var (
 )
 
 type Config struct {
-	IcingaServer    string
-	IcingaCertfile  string
-	IcingaUser      string
-	IcingaPassword  string
-	IcingaQueue     string
-	IcingaTimeoutMS int
-	RedisServer     string
-	RedisDatabase   int
-	FlapjackVersion int
-	FlapjackEvents  string
-	Debug           bool
+	IcingaServer      string
+	IcingaCertfile    string
+	IcingaUser        string
+	IcingaPassword    string
+	IcingaQueue       string
+	IcingaTimeoutMS   int
+	IcingaKeepAliveMS int
+	RedisServer       string
+	RedisDatabase     int
+	FlapjackVersion   int
+	FlapjackEvents    string
+	Debug             bool
 }
 
 func main() {
@@ -89,17 +92,18 @@ func main() {
 	}
 
 	config := Config{
-		IcingaServer:    *icinga_server,
-		IcingaCertfile:  *icinga_certfile,
-		IcingaUser:      *icinga_user,
-		IcingaPassword:  *icinga_password,
-		IcingaQueue:     *icinga_queue,
-		IcingaTimeoutMS: *icinga_timeout,
-		RedisServer:     *redis_server,
-		RedisDatabase:   *redis_database,
-		FlapjackVersion: *flapjack_version,
-		FlapjackEvents:  *flapjack_events,
-		Debug:           *debug,
+		IcingaServer:      *icinga_server,
+		IcingaCertfile:    *icinga_certfile,
+		IcingaUser:        *icinga_user,
+		IcingaPassword:    *icinga_password,
+		IcingaQueue:       *icinga_queue,
+		IcingaTimeoutMS:   *icinga_timeout,
+		IcingaKeepAliveMS: *icinga_keepalive,
+		RedisServer:       *redis_server,
+		RedisDatabase:     *redis_database,
+		FlapjackVersion:   *flapjack_version,
+		FlapjackEvents:    *flapjack_events,
+		Debug:             *debug,
 	}
 
 	if config.Debug {
@@ -147,17 +151,28 @@ func main() {
 	var tr *http.Transport
 	if tls_config == nil {
 		tr = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		} // TODO settings from DefaultTransport
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
+				KeepAlive: time.Duration(config.IcingaKeepAliveMS) * time.Millisecond,
+			}).Dial,
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
 		log.Println("Skipping verification of server TLS certificate")
 	} else {
 		tr = &http.Transport{
-			TLSClientConfig: tls_config,
-		} // TODO settings from DefaultTransport
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
+				KeepAlive: time.Duration(config.IcingaKeepAliveMS) * time.Millisecond,
+			}).Dial,
+			TLSClientConfig:     tls_config,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
 	}
 	finished := make(chan error, 1)
 

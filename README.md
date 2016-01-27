@@ -17,7 +17,6 @@ You'll also need to [set up API access for Icinga 2](http://docs.icinga.org/icin
 ## USAGE
 
 ```
-$ bin/flapjack-icinga2 --help
 usage: flapjack-icinga2 [<flags>]
 
 Transfers Icinga 2 events to Flapjack
@@ -36,12 +35,15 @@ Flags:
                                  checks ICINGA2_API_PASSWORD env var)
   --icinga-queue="flapjack"      Icinga 2 event queue name to use (default
                                  flapjack)
-  --icinga-timeout=60000         Icinga 2 API connection timeout, in
-                                 milliseconds (default 60_000)
+  --icinga-timeout=30000         Icinga 2 API connection timeout, in
+                                 milliseconds (default 30_000)
+  --icinga-keepalive=30000       Icinga 2 API frequency of keepalive traffic, in
+                                 milliseconds (default 30_000)
   --redis-url="localhost:6380"   Redis server to connect to (default
                                  localhost:6380)
   --redis-db=REDIS-DB            Redis database to connect to (default 0)
-  --flapjack-version=1           Flapjack version being delivered to (1 or 2) (default 1)
+  --flapjack-version=1           Flapjack version being delivered to (1 or 2)
+                                 (default 1)
   --flapjack-events="events"     Flapjack event queue name to use (default
                                  events)
   --debug                        Enable verbose output (default false)

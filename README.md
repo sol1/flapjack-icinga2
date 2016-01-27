@@ -6,7 +6,7 @@ A client for Icinga 2's [Event Streams API](http://docs.icinga.org/icinga2/lates
 
 This is loosely based on Flapjack's [httpbroker](https://github.com/flapjack/flapjack/blob/master/libexec/httpbroker.go), although that acts as a HTTP server running to receive callbacks while Icinga 2 expects a long-polling HTTP client to receive event data streamed over a long-lived HTTP 1.1 connection.
 
-It only triggers on 'CheckResult' event types; 'StateChanged' ones are a subset of these, and Flapjack is built to expect a regular heartbeat of events, and display the changed result summaries. The other events aren't really useful in a distributed notification environment, as Flapjack handles downtime, notification etc.
+It only triggers on 'CheckResult' and 'StateChange' event types; Flapjack is built to expect a regular heartbeat of events, and display the changed result outputs. The other events aren't really useful in a distributed notification environment, as Flapjack handles downtime, notification etc.
 
 ## INSTALLATION
 
@@ -49,6 +49,10 @@ Flags:
 ```
 
 ## HISTORY
+
+#### 0.2.0 ????-??-??
+
+* Bugfixes
 
 #### 0.1.0 2016-01-20
 

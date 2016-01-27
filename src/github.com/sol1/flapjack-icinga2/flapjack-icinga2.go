@@ -114,7 +114,7 @@ func main() {
 
 	icinga_url_parts := []string{
 		"https://", config.IcingaServer, "/v1/events?queue=", config.IcingaQueue,
-		"&types=CheckResult", // &types=StateChange&types=CommentAdded&types=CommentRemoved",
+		"&types=CheckResult&types=StateChange",
 	}
 	var icinga_url bytes.Buffer
 	for i := range icinga_url_parts {
@@ -232,12 +232,13 @@ func processResponse(config Config, resp *http.Response, transport flapjack.Tran
 		}
 
 		switch m["type"] {
-		case "CheckResult":
+		case "CheckResult", "StateChange":
 			check_result := m["check_result"].(map[string]interface{})
 			timestamp := m["timestamp"].(float64)
 
 			// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
 			var state string
+
 			switch check_result["state"].(float64) {
 			case 0.0:
 				state = "ok"
@@ -248,11 +249,13 @@ func processResponse(config Config, resp *http.Response, transport flapjack.Tran
 			case 3.0:
 				state = "unknown"
 			default:
-				return fmt.Errorf("Unknown check result state %f", check_result["state"].(float64))
+			}
+
+			if state == "" {
+				return fmt.Errorf("Unknown state %.1f", check_result["state"].(float64))
 			}
 
 			// build and submit Flapjack redis event
-
 			var service string
 			if serv, ok := m["service"]; ok {
 				service = serv.(string)
@@ -271,7 +274,9 @@ func processResponse(config Config, resp *http.Response, transport flapjack.Tran
 
 			// TODO handle err better -- e.g. redis down?
 			_, err := transport.Send(event, config.FlapjackVersion, config.FlapjackEvents)
-			return err
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("Unknown type %s", m["type"])
 		}

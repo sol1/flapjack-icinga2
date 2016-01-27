@@ -214,61 +214,67 @@ func processResponse(config Config, resp *http.Response, transport flapjack.Tran
 	}()
 
 	decoder := json.NewDecoder(resp.Body)
-	var data interface{}
-	err := decoder.Decode(&data)
 
-	if err != nil {
-		return err
-	}
+	for decoder.More() {
 
-	m := data.(map[string]interface{})
+		var data interface{}
 
-	if config.Debug {
-		fmt.Printf("Decoded Response: %+v\n", data)
-	}
+		err := decoder.Decode(&data)
 
-	switch m["type"] {
-	case "CheckResult":
-		check_result := m["check_result"].(map[string]interface{})
-		timestamp := m["timestamp"].(float64)
+		if err != nil {
+			return err
+		}
 
-		// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
-		var state string
-		switch check_result["state"].(float64) {
-		case 0.0:
-			state = "ok"
-		case 1.0:
-			state = "warning"
-		case 2.0:
-			state = "critical"
-		case 3.0:
-			state = "unknown"
+		m := data.(map[string]interface{})
+
+		if config.Debug {
+			fmt.Printf("Decoded Response: %+v\n", data)
+		}
+
+		switch m["type"] {
+		case "CheckResult":
+			check_result := m["check_result"].(map[string]interface{})
+			timestamp := m["timestamp"].(float64)
+
+			// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
+			var state string
+			switch check_result["state"].(float64) {
+			case 0.0:
+				state = "ok"
+			case 1.0:
+				state = "warning"
+			case 2.0:
+				state = "critical"
+			case 3.0:
+				state = "unknown"
+			default:
+				return fmt.Errorf("Unknown check result state %f", check_result["state"].(float64))
+			}
+
+			// build and submit Flapjack redis event
+
+			var service string
+			if serv, ok := m["service"]; ok {
+				service = serv.(string)
+			} else {
+				service = "HOST"
+			}
+
+			event := flapjack.Event{
+				Entity:  m["host"].(string),
+				Check:   service,
+				Type:    "service",
+				Time:    int64(timestamp),
+				State:   state,
+				Summary: check_result["output"].(string),
+			}
+
+			// TODO handle err better -- e.g. redis down?
+			_, err := transport.Send(event, config.FlapjackVersion, config.FlapjackEvents)
+			return err
 		default:
-			return fmt.Errorf("Unknown check result state %f", check_result["state"].(float64))
+			return fmt.Errorf("Unknown type %s", m["type"])
 		}
-
-		// build and submit Flapjack redis event
-
-		var service string
-		if serv, ok := m["service"]; ok {
-			service = serv.(string)
-		} else {
-			service = "HOST"
-		}
-
-		event := flapjack.Event{
-			Entity:  m["host"].(string),
-			Check:   service,
-			Type:    "service",
-			Time:    int64(timestamp),
-			State:   state,
-			Summary: check_result["output"].(string),
-		}
-
-		// TODO handle err better -- e.g. redis down?
-		_, err := transport.Send(event, config.FlapjackVersion, config.FlapjackEvents)
-		return err
-	default:
-		return fmt.Errorf("Unknown type %s", m["type"])
 	}
+	return nil
 }

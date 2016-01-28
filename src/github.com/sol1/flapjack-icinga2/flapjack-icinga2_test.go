@@ -1,27 +1,19 @@
 package main
 
-// import "testing"
+import "testing"
 
-//
-// func TestValidationFails(t *testing.T) {
-//   event := FlapjackEvent{}
-//   err := event.IsValid()
+func TestSendsRequestToIcingaAPI(t *testing.T) {
+	// t.Error("Unimplemented.")
+}
 
-//   if err == nil {
-//     t.Error("Expected validation to fail.")
-//   }
-// }
+func TestProcessSingleCheckResultJSON(t *testing.T) {
+	// t.Error("Unimplemented.")
+}
 
-// func TestValidationPasses(t *testing.T) {
-//   event := FlapjackEvent{
-//     Entity:  "hello",
-//     Check:   "world",
-//     State:   "ok",
-//     Summary: "hello world",
-//   }
-//   err := event.IsValid()
+func TestProcessMultipleCheckResultJSON(t *testing.T) {
+	// t.Error("Unimplemented.")
+}
 
-//   if err != nil {
-//     t.Error("Expected validation to pass, got:", err)
-//   }
-// }
+func TestProcessInvalidCheckResultJSON(t *testing.T) {
+	// t.Error("Unimplemented.")
+}

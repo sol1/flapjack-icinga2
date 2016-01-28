@@ -12,7 +12,23 @@ It only triggers on 'CheckResult' and 'StateChange' event types; Flapjack is bui
 
 This API client is written in Go; you'll need Go 1.5 installed on the machine you are building on. The `build.sh` [script](https://github.com/sol1/flapjack-icinga2/blob/master/build.sh) compiles a standalone binary (in `bin/flapjack-icinga2`) which can be run on other machines without external dependencies.
 
-You'll also need to [set up API access for Icinga 2](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api#icinga2-api-setup) if you haven't already.
+You'll also need to [set up API access for Icinga 2](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api#icinga2-api-setup) if you haven't already. The API user you will be using for this client will need to have (at a minimum) permission to access the correct event types:
+
+```
+/*
+ /etc/icinga2/conf.d/api-users.conf
+*/
+
+object ApiUser "username" {
+  password = "password"
+  permissions = [
+    { permission = "events/checkresult" },
+    { permission = "events/statechange" }
+  ]
+}
+```
+
+These permissions may be filtered if you want to limit the full range of events that would otherwise be received.
 
 ## USAGE
 

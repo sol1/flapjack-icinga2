@@ -187,16 +187,23 @@ func main() {
 					fmt.Printf("URL: %+v\n", icinga_url.String())
 					fmt.Printf("Response: %+v\n", resp.Status)
 				}
-				err = processResponse(config, resp, transport)
-				if config.Debug {
-					fmt.Println("post-process err", err)
+
+				if resp.StatusCode == http.StatusOK {
+					err = processResponse(config, resp, transport)
+					if config.Debug {
+						fmt.Println("post-process err", err)
+					}
+				} else {
+					defer func() {
+						resp.Body.Close()
+					}()
+
+					body, _ := ioutil.ReadAll(resp.Body)
+					err = fmt.Errorf("API HTTP request failed: %s , %s", resp.Status, body)
 				}
 			}
 
 			if err != nil {
-				if config.Debug {
-					fmt.Println("finishing, found err", err)
-				}
 				finished <- err
 				done = true
 			}
@@ -210,7 +217,7 @@ func main() {
 		tr.CancelRequest(req)
 	case err := <-finished:
 		if config.Debug {
-			fmt.Println("Finished with error", err)
+			fmt.Println("Finished with error // ", err)
 		}
 	}
 

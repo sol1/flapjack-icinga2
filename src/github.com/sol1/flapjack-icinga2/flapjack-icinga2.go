@@ -1,23 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"github.com/sol1/flapjack-icinga2/flapjack"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"io"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 )
 
 var (
@@ -46,50 +36,11 @@ var (
 	debug = app.Flag("debug", "Enable verbose output (default false)").Bool()
 )
 
-type Config struct {
-	IcingaServer      string
-	IcingaCertfile    string
-	IcingaUser        string
-	IcingaPassword    string
-	IcingaQueue       string
-	IcingaTimeoutMS   int
-	IcingaKeepAliveMS int
-	RedisServer       string
-	RedisDatabase     int
-	FlapjackVersion   int
-	FlapjackEvents    string
-	Debug             bool
-}
-
 func main() {
 	app.Version("0.1.0")
 	app.Writer(os.Stdout) // direct help to stdout
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	app.Writer(os.Stderr) // ... but ensure errors go to stderr
-
-	icinga_addr := strings.Split(*icinga_server, ":")
-	if len(icinga_addr) != 2 {
-		log.Printf("Error: invalid icinga_server specified: %s\n", *icinga_server)
-		log.Println("Should be in format `host:port` (e.g. 127.0.0.1:5665)")
-		os.Exit(1)
-	}
-
-	redis_addr := strings.Split(*redis_server, ":")
-	if len(redis_addr) != 2 {
-		log.Printf("Error: invalid redis_server specified: %s\n", *redis_server)
-		log.Println("Should be in format `host:port` (e.g. 127.0.0.1:6380)")
-		os.Exit(1)
-	}
-
-	if *icinga_user == "" {
-		log.Println("No Icinga2 API user specified in ICINGA2_API_USER env variable or --user option")
-		os.Exit(1)
-	}
-
-	if *icinga_password == "" {
-		log.Println("No Icinga2 API password specified in ICINGA2_API_PASSWORD env variable or --password option")
-		os.Exit(1)
-	}
 
 	config := Config{
 		IcingaServer:      *icinga_server,
@@ -106,115 +57,39 @@ func main() {
 		Debug:             *debug,
 	}
 
+	errs := config.Errors()
+
+	if len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Println(e)
+		}
+		os.Exit(1)
+	}
+
 	if config.Debug {
 		log.Printf("Starting with config: %+v\n", config)
 	}
 
 	// shutdown signal handler
 	sigs := make(chan os.Signal, 1)
-	done := false
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	icinga_url_parts := []string{
-		"https://", config.IcingaServer, "/v1/events?queue=", config.IcingaQueue,
-		"&types=CheckResult&types=StateChange",
-	}
-	var icinga_url bytes.Buffer
-	for i := range icinga_url_parts {
-		icinga_url.WriteString(icinga_url_parts[i])
-	}
 
 	transport, err := flapjack.Dial(config.RedisServer, config.RedisDatabase)
 	if err != nil {
 		log.Fatalf("Couldn't establish Redis connection: %s\n", err)
 	}
 
-	var tls_config *tls.Config
-
-	if config.IcingaCertfile != "" {
-		// assuming self-signed server cert -- /etc/icinga2/ca.crt
-		// TODO check behaviour for using system cert store (valid public cert)
-		CA_Pool := x509.NewCertPool()
-		serverCert, err := ioutil.ReadFile(config.IcingaCertfile)
-		if err != nil {
-			log.Fatalln("Could not load server certificate")
-		}
-		CA_Pool.AppendCertsFromPEM(serverCert)
-
-		tls_config = &tls.Config{RootCAs: CA_Pool}
-	}
-
-	req, _ := http.NewRequest("POST", icinga_url.String(), nil)
-	req.Header.Add("Accept", "application/json")
-	req.SetBasicAuth(config.IcingaUser, config.IcingaPassword)
-	var tr *http.Transport
-	if tls_config == nil {
-		tr = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
-				KeepAlive: time.Duration(config.IcingaKeepAliveMS) * time.Millisecond,
-			}).Dial,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-			TLSHandshakeTimeout: 10 * time.Second,
-		}
-		log.Println("Skipping verification of server TLS certificate")
-	} else {
-		tr = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   time.Duration(config.IcingaTimeoutMS) * time.Millisecond,
-				KeepAlive: time.Duration(config.IcingaKeepAliveMS) * time.Millisecond,
-			}).Dial,
-			TLSClientConfig:     tls_config,
-			TLSHandshakeTimeout: 10 * time.Second,
-		}
-	}
-	client := &http.Client{
-		Transport: tr,
-	}
 	finished := make(chan error, 1)
 
-	go func() {
-		for done == false {
-			resp, err := client.Do(req)
-			if config.Debug {
-				fmt.Println("post-req err", err)
-			}
-			if err == nil {
-				if config.Debug {
-					fmt.Printf("URL: %+v\n", icinga_url.String())
-					fmt.Printf("Response: %+v\n", resp.Status)
-				}
-
-				if resp.StatusCode == http.StatusOK {
-					err = processResponse(config, resp, transport)
-					if config.Debug {
-						fmt.Println("post-process err", err)
-					}
-				} else {
-					defer func() {
-						resp.Body.Close()
-					}()
-
-					body, _ := ioutil.ReadAll(resp.Body)
-					err = fmt.Errorf("API HTTP request failed: %s , %s", resp.Status, body)
-				}
-			}
-
-			if err != nil {
-				finished <- err
-				done = true
-			}
-		}
-	}()
+	api_client := ApiClient{config: config, redis: transport}
+	api_client.Connect(finished)
 
 	select {
 	case <-sigs:
 		log.Println("Interrupted, cancelling request")
 		// TODO determine if request not currently active...
-		tr.CancelRequest(req)
+		api_client.Cancel()
 	case err := <-finished:
 		if config.Debug {
 			fmt.Println("Finished with error // ", err)
@@ -225,83 +100,4 @@ func main() {
 	transport.Close()
 
 	// TODO output some stats on events handled etc.
-}
-
-func processResponse(config Config, resp *http.Response, transport flapjack.Transport) error {
-	defer func() {
-		// this makes sure that the HTTP connection will be re-used properly -- exhaust
-		// stream and close the handle
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}()
-
-	decoder := json.NewDecoder(resp.Body)
-
-	for decoder.More() {
-
-		var data interface{}
-
-		err := decoder.Decode(&data)
-
-		if err != nil {
-			return err
-		}
-
-		m := data.(map[string]interface{})
-
-		if config.Debug {
-			fmt.Printf("Decoded Response: %+v\n", data)
-		}
-
-		switch m["type"] {
-		case "CheckResult", "StateChange":
-			check_result := m["check_result"].(map[string]interface{})
-			timestamp := m["timestamp"].(float64)
-
-			// https://github.com/Icinga/icinga2/blob/master/lib/icinga/checkresult.ti#L37-L48
-			var state string
-
-			switch check_result["state"].(float64) {
-			case 0.0:
-				state = "ok"
-			case 1.0:
-				state = "warning"
-			case 2.0:
-				state = "critical"
-			case 3.0:
-				state = "unknown"
-			default:
-			}
-
-			if state == "" {
-				return fmt.Errorf("Unknown state %.1f", check_result["state"].(float64))
-			}
-
-			// build and submit Flapjack redis event
-			var service string
-			if serv, ok := m["service"]; ok {
-				service = serv.(string)
-			} else {
-				service = "HOST"
-			}
-
-			event := flapjack.Event{
-				Entity:  m["host"].(string),
-				Check:   service,
-				Type:    "service",
-				Time:    int64(timestamp),
-				State:   state,
-				Summary: check_result["output"].(string),
-			}
-
-			// TODO handle err better -- e.g. redis down?
-			_, err := transport.Send(event, config.FlapjackVersion, config.FlapjackEvents)
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("Unknown type %s", m["type"])
-		}
-	}
-	return nil
 }

@@ -40,8 +40,7 @@ Transfers Icinga 2 events to Flapjack
 Flags:
   --help                         Show context-sensitive help (also try
                                  --help-long and --help-man).
-  --icinga-url="localhost:5665"  Icinga 2 API endpoint to connect to (default
-                                 localhost:5665)
+  --icinga-url="localhost:5665"  Icinga 2 API endpoint to connect to
   --icinga-certfile=ICINGA-CERTFILE
                                  Path to Icinga 2 API TLS certfile
   --icinga-user=ICINGA-USER      Icinga 2 basic auth user (required, also checks
@@ -49,19 +48,15 @@ Flags:
   --icinga-password=ICINGA-PASSWORD
                                  Icinga 2 basic auth password (required, also
                                  checks ICINGA2_API_PASSWORD env var)
-  --icinga-queue="flapjack"      Icinga 2 event queue name to use (default
-                                 flapjack)
+  --icinga-queue="flapjack"      Icinga 2 event queue name to use
   --icinga-timeout=30000         Icinga 2 API connection timeout, in
-                                 milliseconds (default 30_000)
+                                 milliseconds
   --icinga-keepalive=30000       Icinga 2 API frequency of keepalive traffic, in
-                                 milliseconds (default 30_000)
-  --redis-url="localhost:6380"   Redis server to connect to (default
-                                 localhost:6380)
-  --redis-db=REDIS-DB            Redis database to connect to (default 0)
+                                 milliseconds
+  --redis-url="localhost:6380"   Redis server to connect to
+  --redis-db=0                   Redis database to connect to
   --flapjack-version=1           Flapjack version being delivered to (1 or 2)
-                                 (default 1)
-  --flapjack-events="events"     Flapjack event queue name to use (default
-                                 events)
+  --flapjack-events="events"     Flapjack event queue name to use
   --debug                        Enable verbose output (default false)
   --version                      Show application version.
 ```

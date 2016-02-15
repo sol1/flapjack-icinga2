@@ -7,4 +7,5 @@ services:
 install:
 - go get gopkg.in/alecthomas/kingpin.v2
 - go get github.com/garyburd/redigo/redis
-script: GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go test -v github.com/sol1/flapjack-icinga2/flapjack github.com/sol1/flapjack-icinga2 && GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go build -o bin/flapjack-icinga2 -x github.com/sol1/flapjack-icinga2
+- go get github.com/flapjack/flapjack/src/flapjack
+script: GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go test -v github.com/sol1/flapjack-icinga2 && GOPATH=$TRAVIS_BUILD_DIR:$GOPATH go build -o bin/flapjack-icinga2 -x github.com/sol1/flapjack-icinga2

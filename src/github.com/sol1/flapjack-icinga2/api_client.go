@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/sol1/flapjack-icinga2/flapjack"
+	flapjack "github.com/flapjack/flapjack/src/flapjack"
 	"io"
 	"io/ioutil"
 	"log"
@@ -183,7 +183,7 @@ func (ac *ApiClient) processResponse(resp *http.Response) error {
 			}
 
 			// TODO handle err better -- e.g. redis down?
-			_, err := ac.redis.Send(event, ac.config.FlapjackVersion, ac.config.FlapjackEvents)
+			_, err := ac.redis.SendVersionQueue(event, ac.config.FlapjackVersion, ac.config.FlapjackEvents)
 			if err != nil {
 				return err
 			}

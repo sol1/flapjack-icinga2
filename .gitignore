@@ -1,2 +1,8 @@
 /bin/flapjack-icinga2
 /pkg/*
+
+# build
+/src/github.com/alecthomas/*
+/src/github.com/flapjack/*
+/src/github.com/garyburd/*
+/src/gopkg.in/alecthomas/*

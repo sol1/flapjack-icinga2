@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/sol1/flapjack-icinga2/flapjack"
+	flapjack "github.com/flapjack/flapjack/src/flapjack"
 	"log"
 	"os"
 	"os/signal"

@@ -13,7 +13,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Sends events to flapjack from icinga2 api"
 NAME="flapjack-icinga2"
-DAEMON=/bin/flapjack-icinga2
+PIDDIR=/var/run/flapjack-icinga2
 PIDFILE=/var/run/flapjack-icinga2/flapjack-icinga2.pid
 LOGFILE=/var/log/flapjack-icinga2/flapjack-icinga2.log
 CONFIG=/etc/flapjack-icinga2/flapjack-icinga2.conf
@@ -24,7 +24,12 @@ test -r $CONFIG && . $CONFIG || { echo "$CONFIG not existing";
         if [ "$1" = "stop" ]; then exit 0;
         else exit 6; fi; }
 
-SCRIPT="$DAEMON --icinga-url=$icinga2_server --icinga-user=$icinga_user --icinga-password=$icinga_password --redis-url=$redis_server --debug"
+## Create pid directory
+test -r $PIDDIR || { echo "$PIDDIR created";
+     mkdir /var/run/flapjack-icinga2; }
+
+#build command
+SCRIPT="$binary --icinga-url=$icinga2_server --icinga-user=$icinga_user --icinga-password=$icinga_password --redis-url=$redis_server"
 
 start() {
   if [ -f /var/run/$PIDNAME ] && kill -0 $(cat /var/run/$PIDNAME); then
@@ -47,6 +52,21 @@ stop() {
   echo 'Service stopped' >&2
 }
 
+status() {
+        printf "%-50s" "Checking $NAME..."
+    if [ -f $PIDFILE ]; then
+        PID=$(cat $PIDFILE)
+            if [ -z "$(ps axf | grep ${PID} | grep -v grep)" ]; then
+                printf "%s\n" "The process appears to be dead but pidfile still exists"
+            else    
+                echo "Running, the PID is $PID"
+            fi
+    else
+        printf "%s\n" "Service not running"
+    fi
+}
+
+
 case "$1" in
   start)
     start
@@ -54,10 +74,13 @@ case "$1" in
   stop)
     stop
     ;;
+  status)
+    status
+    ;;
   retart)
     stop
     start
     ;;
   *)
-    echo "Usage: $0 {start|stop|restart}"
+    echo "Usage: $0 {start|stop|restart|status}"
 esac

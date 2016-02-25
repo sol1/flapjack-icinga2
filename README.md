@@ -10,7 +10,7 @@ It only triggers on 'CheckResult' and 'StateChange' event types; Flapjack is bui
 
 ## INSTALLATION
 
-This API client is written in Go; you'll need Go 1.5 installed on the machine you are building on. The `build.sh` [script](https://github.com/sol1/flapjack-icinga2/blob/master/build.sh) compiles a standalone binary (in `bin/flapjack-icinga2`) which can be run on other machines without external dependencies.
+This API client is written in Go; you'll need Go 1.5+ installed on the machine you are building on. The `build.sh` [script](https://github.com/sol1/flapjack-icinga2/blob/master/build.sh) compiles a standalone binary (in `bin/flapjack-icinga2`) which can be run on other machines without external dependencies.
 
 You'll also need to [set up API access for Icinga 2](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/icinga2-api#icinga2-api-setup) if you haven't already. The API user you will be using for this client will need to have (at a minimum) permission to access the correct event types:
 

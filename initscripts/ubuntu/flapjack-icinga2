@@ -5,13 +5,13 @@
 # Required-Stop:     $local_fs $network $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Plugin to support icinga2 on flapjack.io
-# Description:       Sends events to flapjack from icinga2 api https://github.com/sol1/flapjack-icinga2
+# Short-Description: Agent to publish Icinga 2 events into Flapjack
+# Description:       Sends events to Flapjack from Icinga 2: https://github.com/sol1/flapjack-icinga2
 ### END INIT INFO
 
 # Do NOT "set -e"
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="Sends events to flapjack from icinga2 api"
+DESC="Agent to publish Icinga 2 events into Flapjack"
 NAME="flapjack-icinga2"
 PIDDIR=/var/run/flapjack-icinga2
 PIDFILE=/var/run/flapjack-icinga2/flapjack-icinga2.pid

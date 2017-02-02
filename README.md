@@ -77,4 +77,4 @@ Flags:
 
 ## CREDITS
 
-Written by [Ali Graham](https://github.com/ali-graham). Development sponsored by [Solutions First](http://sol1.com.au/).
+Written by [Ali Graham](https://github.com/ali-graham). Development sponsored by [Sol1](http://sol1.com.au/).
